@@ -6,10 +6,10 @@ use rand_core::{OsRng, RngCore};
 use sha3::{Digest, Keccak256};
 use std::borrow::BorrowMut;
 use std::io::prelude::*;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
-use std::sync::Mutex;
-use std::sync::Arc;
 
 use crate::mac;
 
@@ -325,6 +325,52 @@ pub fn create_body(
     let tag = egress_mac.digest();
 
     return [body_message.to_vec(), tag].concat().to_vec();
+}
+
+pub fn send_eip8_auth_message(
+    msg: &Vec<u8>,
+    stream: &mut std::net::TcpStream,
+) {
+    stream.write(&msg).unwrap();
+    stream.flush().unwrap();
+}
+
+pub fn read_ack_message(
+    stream: &mut std::net::TcpStream
+) -> (Vec<u8>, Vec<u8>) {
+    let mut buf = [0u8; 2];
+    let _size = stream.read(&mut buf);
+
+    let size_expected = buf.as_slice().read_u16::<BigEndian>().unwrap() as usize;
+    let shared_mac_data = &buf[0..2];
+
+    let mut payload = vec![0u8; size_expected.into()];
+    let size = stream.read(&mut payload).unwrap();
+
+    assert_eq!(size, size_expected);
+
+    return (payload, shared_mac_data.to_vec());
+}
+
+pub fn handle_ack_message(
+    payload: &Vec<u8>,
+    shared_mac_data: &Vec<u8>,
+    private_key: &Vec<u8>,
+    ephemeral_privkey: &Vec<u8>,
+) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    let decrypted = decrypt_message(payload, shared_mac_data, private_key);
+
+    // decode RPL data
+    let rlp = rlp::Rlp::new(&decrypted);
+    let mut rlp = rlp.into_iter();
+
+    // id to pubkey
+    let remote_public_key: Vec<u8> = [vec![0x04], rlp.next().unwrap().as_val().unwrap()].concat();
+    let remote_nonce: Vec<u8> = rlp.next().unwrap().as_val().unwrap();
+
+    let ephemeral_shared_secret = ecdh_x(&remote_public_key, ephemeral_privkey);
+
+    return (remote_public_key, remote_nonce, ephemeral_shared_secret);
 }
 
 pub fn send_message(

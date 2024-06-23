@@ -1,23 +1,22 @@
-use std::sync::Mutex;
-use std::sync::Arc;
 use byteorder::{BigEndian, ReadBytesExt};
 use secp256k1::rand::RngCore;
 use secp256k1::{rand, SecretKey};
-use std::env;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::sync::mpsc::channel;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
 use crate::types::{Block, Transaction};
 
 pub mod eth;
-pub mod types;
-pub mod utils;
+pub mod mac;
 pub mod message;
 pub mod networks;
-pub mod mac;
+pub mod types;
+pub mod utils;
 
 // max value seems to be 1024 (https://github.com/ethereum/go-ethereum/blob/master/eth/protocols/eth/handler.go#L40)
 const BLOCK_NUM: usize = 1024;
@@ -26,20 +25,19 @@ fn main() {
     println!("Lets go");
 
     // Feel the IP here
-    let ip = "";
-    let port = 30303;
+    let ip = "184.174.36.104";
+    let port = 50303;
     // Feel the remote_id here
-    let remote_id = hex::decode("").unwrap();
+    let remote_id = hex::decode("a73c411ac2aa8092b961d934109302548f276916001bb24d36715d8894215b3b2a93d4e00790a6d565334bb4860a3c211d64881e3fde4ed96be77dc86b9f6784").unwrap();
 
-    let network = networks::Network::find("ethereum_goerli").unwrap();
+    let network = networks::Network::find("ethereum_sepolia").unwrap();
 
     /******************
      *
      *  Connect to peer
      *
      ******************/
-    let mut stream =
-        TcpStream::connect(format!("{}:{}", ip, port)).unwrap();
+    let mut stream = TcpStream::connect(format!("{}:{}", ip, port)).unwrap();
 
     let private_key = SecretKey::new(&mut rand::thread_rng())
         .secret_bytes()
@@ -62,40 +60,19 @@ fn main() {
 
     // send the message
     println!("Sending EIP8 Auth message");
-    stream.write(&init_msg).unwrap();
-    stream.flush().unwrap();
+    utils::send_eip8_auth_message(&init_msg, &mut stream);
 
-    println!("waiting for answer...");
-    let mut buf = [0u8; 2];
-    let _size = stream.read(&mut buf);
-
-    let size_expected = buf.as_slice().read_u16::<BigEndian>().unwrap() as usize;
-    let shared_mac_data = &buf[0..2];
-
-    let mut payload = vec![0u8; size_expected.into()];
-    let size = stream.read(&mut payload).unwrap();
-
-    assert_eq!(size, size_expected);
+    println!("waiting for answer (ACK message)...");
+    let (payload, shared_mac_data) = utils::read_ack_message(&mut stream);
 
     /******************
      *
-     *  Handle Ack
+     *  Handle Ack message
      *
      ******************/
 
-    println!("ACK message received");
-    let decrypted =
-        utils::decrypt_message(&payload.to_vec(), &shared_mac_data.to_vec(), &private_key);
-
-    // decode RPL data
-    let rlp = rlp::Rlp::new(&decrypted);
-    let mut rlp = rlp.into_iter();
-
-    // id to pubkey
-    let remote_public_key: Vec<u8> = [vec![0x04], rlp.next().unwrap().as_val().unwrap()].concat();
-    let remote_nonce: Vec<u8> = rlp.next().unwrap().as_val().unwrap();
-
-    let ephemeral_shared_secret = utils::ecdh_x(&remote_public_key, &ephemeral_privkey);
+    println!("Received Ack");
+    let (_remote_public_key, remote_nonce, ephemeral_shared_secret) = utils::handle_ack_message(&payload, &shared_mac_data, &private_key, &ephemeral_privkey);
 
     /******************
      *
@@ -103,8 +80,9 @@ fn main() {
      *
      ******************/
 
-    let remote_data = [shared_mac_data, &payload].concat();
-    let (mut ingress_aes, mut ingress_mac, mut egress_aes, mut egress_mac) = utils::setup_frame(
+    println!("Setup frame for sending and reading message");
+    let remote_data = [shared_mac_data, payload].concat();
+    let (mut ingress_aes, mut ingress_mac, egress_aes, egress_mac) = utils::setup_frame(
         remote_nonce,
         nonce,
         ephemeral_shared_secret,
@@ -112,12 +90,10 @@ fn main() {
         init_msg,
     );
 
-    let mut egress_aes = Arc::new(Mutex::new(egress_aes));
-    let mut egress_mac = Arc::new(Mutex::new(egress_mac));
+    let egress_aes = Arc::new(Mutex::new(egress_aes));
+    let egress_mac = Arc::new(Mutex::new(egress_mac));
 
     println!("Frame setup done !");
-
-    println!("Received Ack, waiting for Header");
 
     /******************
      *
@@ -125,6 +101,7 @@ fn main() {
      *
      ******************/
 
+    println!("Waiting for HELLO message...");
     let uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
 
     // Should be HELLO
@@ -135,7 +112,7 @@ fn main() {
 
     /******************
      *
-     *  Create Hello
+     *  Create HELLO
      *
      ******************/
 
@@ -175,7 +152,6 @@ fn main() {
     let uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
     let mut current_hash = eth::parse_status_message(uncrypted_body[1..].to_vec());
 
-
     /****************************
      *
      *  START FETCHING BLOCKS
@@ -191,7 +167,8 @@ fn main() {
         let mut uncrypted_body: Vec<u8>;
         let mut code;
         loop {
-            uncrypted_body = utils::read_message(&mut thread_stream, &mut ingress_mac, &mut ingress_aes);
+            uncrypted_body =
+                utils::read_message(&mut thread_stream, &mut ingress_mac, &mut ingress_aes);
 
             // handle RLPx message
             if uncrypted_body[0] < 16 {
@@ -203,12 +180,16 @@ fn main() {
                     // send pong
                     let pong = message::create_pong_message();
 
-                    utils::send_message(pong, &mut thread_stream, &thread_egress_mac, &thread_egress_aes);
+                    utils::send_message(
+                        pong,
+                        &mut thread_stream,
+                        &thread_egress_mac,
+                        &thread_egress_aes,
+                    );
                 }
                 continue;
             }
 
-            println!("send");
             tx.send(uncrypted_body).unwrap();
         }
     });
@@ -223,12 +204,7 @@ fn main() {
         println!("Sending GetBlockHeaders message");
         let get_blocks_headers =
             eth::create_get_block_headers_message(&current_hash, BLOCK_NUM, 0, true);
-        utils::send_message(
-            get_blocks_headers,
-            &mut stream,
-            &egress_mac,
-            &egress_aes,
-        );
+        utils::send_message(get_blocks_headers, &mut stream, &egress_mac, &egress_aes);
 
         /******************
          *
@@ -271,12 +247,7 @@ fn main() {
         while transactions.len() < hashes.len() {
             let get_blocks_bodies =
                 eth::create_get_block_bodies_message(&hashes[transactions.len()..].to_vec());
-            utils::send_message(
-                get_blocks_bodies,
-                &mut stream,
-                &egress_mac,
-                &egress_aes,
-            );
+            utils::send_message(get_blocks_bodies, &mut stream, &egress_mac, &egress_aes);
 
             /******************
              *
@@ -285,14 +256,14 @@ fn main() {
              ******************/
 
             println!(
-                "Handling BlockBodies message ({}/{BLOCK_NUM} txs received)",
+                "Handling BlockBodies message ({}/{BLOCK_NUM} blocks received)",
                 transactions.len()
             );
             let mut uncrypted_body: Vec<u8>;
             let mut code;
             loop {
                 uncrypted_body = rx.recv().unwrap();
-    
+
                 code = uncrypted_body[0] - 16;
                 if code == 6 {
                     break;
@@ -312,9 +283,6 @@ fn main() {
 
         let current_height = blocks.last().unwrap().0.number;
         println!("Blocks n° {}", current_height);
-
-        // See if we keep answering 2 code even if main is blocked
-        thread::sleep(Duration::from_secs(60));
 
         if current_height == 0 {
             println!("Data fully synced");

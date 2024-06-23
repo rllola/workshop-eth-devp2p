@@ -138,9 +138,6 @@ pub fn parse_block_headers(payload: Vec<u8>) -> Vec<Block> {
             parenthash: parent_hash.to_vec(),
             extradata: extradata.to_vec(),
         });
-
-        println!("Block hash : {}", hex::encode(&hash));
-        println!("Number : {}", number);
     }
 
     return hashes;
@@ -188,8 +185,6 @@ pub fn parse_block_bodies(payload: Vec<u8>) -> Vec<Vec<Transaction>> {
 
         let transactions = block_body.at(0).unwrap();
         let count_tx = transactions.item_count().unwrap();
-
-        println!("Transactions count : {}", count_tx);
 
         let mut result_transactions: Vec<Transaction> = vec![];
 
