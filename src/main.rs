@@ -50,6 +50,20 @@ fn main() {
      let pad = vec![0; 100]; // should be generated randomly but we don't really care
 
 
+    /******************
+     *
+     *  Create Auth message (EIP8 supported)
+     *
+     ******************/
+    println!("Creating EIP8 Auth message");
+    let init_msg =
+        utils::create_auth_eip8(&remote_id, &private_key, &nonce, &ephemeral_privkey, &pad);
+
+    // send the message
+    println!("Sending EIP8 Auth message");
+    utils::send_eip8_auth_message(&init_msg, &mut stream);
+
+
     loop {
 
 
