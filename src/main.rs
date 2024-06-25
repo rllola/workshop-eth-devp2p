@@ -32,12 +32,32 @@ fn main() {
 
     let network = networks::Network::find("ethereum_sepolia").unwrap();
 
+    /******************
+     *
+     *  Connect to peer
+     *
+     ******************/
+     let mut stream = TcpStream::connect(format!("{}:{}", ip, port)).unwrap();
+
+     let private_key = SecretKey::new(&mut rand::thread_rng())
+         .secret_bytes()
+         .to_vec();
+     let mut nonce = vec![0; 32];
+     rand::thread_rng().fill_bytes(&mut nonce);
+     let ephemeral_privkey = SecretKey::new(&mut rand::thread_rng())
+         .secret_bytes()
+         .to_vec();
+     let pad = vec![0; 100]; // should be generated randomly but we don't really care
+
+
     loop {
 
 
-        if current_height == 0 {
-            println!("Data fully synced");
-            break;
-        }
+        // if current_height == 0 {
+        //     println!("Data fully synced");
+        //     break;
+        // }
+
+        break;
     }
 }
