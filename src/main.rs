@@ -63,17 +63,39 @@ fn main() {
     println!("Sending EIP8 Auth message");
     utils::send_eip8_auth_message(&init_msg, &mut stream);
 
-    println!("waiting for answer (ACK message)...");
-    let (payload, shared_mac_data) = utils::read_ack_message(&mut stream);
-
     /******************
      *
      *  Handle Ack message
      *
      ******************/
 
+    println!("waiting for answer (ACK message)...");
+    let (payload, shared_mac_data) = utils::read_ack_message(&mut stream);
+
     println!("Received Ack");
     let (_remote_public_key, remote_nonce, ephemeral_shared_secret) = utils::handle_ack_message(&payload, &shared_mac_data, &private_key, &ephemeral_privkey);
+
+    /******************
+     *
+     *  Setup Frame
+     *
+     ******************/
+
+    println!("Setup frame for sending and reading message");
+    let remote_data = [shared_mac_data, payload].concat();
+    let (mut ingress_aes, mut ingress_mac, egress_aes, egress_mac) = utils::setup_frame(
+        remote_nonce,
+        nonce,
+        ephemeral_shared_secret,
+        remote_data,
+        init_msg,
+    );
+
+    let egress_aes = Arc::new(Mutex::new(egress_aes));
+    let egress_mac = Arc::new(Mutex::new(egress_mac));
+
+    println!("Frame setup done !");
+
 
     loop {
 
