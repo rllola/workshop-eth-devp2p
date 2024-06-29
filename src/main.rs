@@ -63,18 +63,6 @@ fn main() {
     println!("Sending EIP8 Auth message");
     utils::send_eip8_auth_message(&init_msg, &mut stream);
 
-    println!("waiting for answer (ACK message)...");
-    let (payload, shared_mac_data) = utils::read_ack_message(&mut stream);
-
-    /******************
-     *
-     *  Handle Ack message
-     *
-     ******************/
-
-    println!("Received Ack");
-    let (_remote_public_key, remote_nonce, ephemeral_shared_secret) = utils::handle_ack_message(&payload, &shared_mac_data, &private_key, &ephemeral_privkey);
-
     loop {
 
 
