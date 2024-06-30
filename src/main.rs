@@ -196,9 +196,36 @@ fn main() {
         }
     });
 
-
-
     loop {
+
+        /******************
+         *
+         *  Send GetBlockHeaders message
+         *
+         ******************/
+
+        println!("Sending GetBlockHeaders message");
+        let get_blocks_headers =
+            eth::create_get_block_headers_message(&current_hash, BLOCK_NUM, 0, true);
+        utils::send_message(get_blocks_headers, &mut stream, &egress_mac, &egress_aes);
+
+        /******************
+         *
+         *  Handle BlockHeader message
+         *
+         ******************/
+ 
+        println!("Handling BlockHeaders message");
+        let mut uncrypted_body: Vec<u8>;
+        let mut code;
+        loop {
+            uncrypted_body = rx.recv().unwrap();
+
+            code = uncrypted_body[0] - 16;
+            if code == 4 {
+                break;
+            }
+        }
 
 
         // if current_height == 0 {
