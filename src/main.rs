@@ -143,6 +143,16 @@ fn main() {
     );
     utils::send_message(status, &mut stream, &egress_mac, &egress_aes);
 
+    /******************
+     *
+     *  Handle STATUS message
+     *
+     ******************/
+
+    println!("Handling STATUS message");
+    let uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
+    let mut current_hash = eth::parse_status_message(uncrypted_body[1..].to_vec());
+
     loop {
 
 
