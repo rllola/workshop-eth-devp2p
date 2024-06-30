@@ -96,6 +96,31 @@ fn main() {
 
     println!("Frame setup done !");
 
+    /******************
+     *
+     *  Handle HELLO
+     *
+     ******************/
+
+    println!("Waiting for HELLO message...");
+    let uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
+
+    // Should be HELLO
+    assert_eq!(0x80, uncrypted_body[0]);
+    let payload = rlp::decode::<types::HelloMessage>(&uncrypted_body[1..]).unwrap();
+
+    dbg!(&payload);
+
+    /******************
+     *
+     *  Create HELLO
+     *
+     ******************/
+
+    println!("Sending HELLO message");
+    let hello = message::create_hello_message(&private_key);
+    utils::send_message(hello, &mut stream, &egress_mac, &egress_aes);
+
 
     loop {
 
