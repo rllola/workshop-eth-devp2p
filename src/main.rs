@@ -121,6 +121,27 @@ fn main() {
     let hello = message::create_hello_message(&private_key);
     utils::send_message(hello, &mut stream, &egress_mac, &egress_aes);
 
+    /******************
+     *
+     *  Send STATUS message
+     *
+     ******************/
+
+    println!("Sending STATUS message");
+
+    let genesis_hash = network.genesis_hash.to_vec();
+    let head_td = 0;
+    let fork_id = network.fork_id.to_vec();
+    let network_id = network.network_id;
+
+    let status = eth::create_status_message(
+        &genesis_hash,
+        &genesis_hash,
+        &head_td,
+        &fork_id,
+        &network_id,
+    );
+    utils::send_message(status, &mut stream, &egress_mac, &egress_aes);
 
     loop {
 
