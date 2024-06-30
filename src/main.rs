@@ -153,6 +153,51 @@ fn main() {
     let uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
     let mut current_hash = eth::parse_status_message(uncrypted_body[1..].to_vec());
 
+
+    /****************************
+     *
+     *  START FETCHING BLOCKS
+     *
+     ****************************/
+    let mut thread_stream = stream.try_clone().unwrap();
+    let thread_egress_mac = Arc::clone(&egress_mac);
+    let thread_egress_aes = Arc::clone(&egress_aes);
+
+    let (tx, rx) = channel();
+
+    let _handle = thread::spawn(move || {
+        let mut uncrypted_body: Vec<u8>;
+        let mut code;
+        loop {
+            uncrypted_body =
+                utils::read_message(&mut thread_stream, &mut ingress_mac, &mut ingress_aes);
+
+            // handle RLPx message
+            if uncrypted_body[0] < 16 {
+                println!("Code {}", uncrypted_body[0]);
+                println!("{}", hex::encode(&uncrypted_body));
+                code = uncrypted_body[0];
+
+                if code == 2 {
+                    // send pong
+                    let pong = message::create_pong_message();
+
+                    utils::send_message(
+                        pong,
+                        &mut thread_stream,
+                        &thread_egress_mac,
+                        &thread_egress_aes,
+                    );
+                }
+                continue;
+            }
+
+            tx.send(uncrypted_body).unwrap();
+        }
+    });
+
+
+
     loop {
 
 
