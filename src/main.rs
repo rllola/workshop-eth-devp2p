@@ -209,6 +209,32 @@ fn main() {
             eth::create_get_block_headers_message(&current_hash, BLOCK_NUM, 0, true);
         utils::send_message(get_blocks_headers, &mut stream, &egress_mac, &egress_aes);
 
+        /******************
+         *
+         *  Handle BlockHeader message
+         *
+         ******************/
+ 
+        println!("Handling BlockHeaders message");
+        let mut uncrypted_body: Vec<u8>;
+        let mut code;
+        loop {
+            uncrypted_body = rx.recv().unwrap();
+
+            code = uncrypted_body[0] - 16;
+            if code == 4 {
+                break;
+            }
+        }
+
+        assert_eq!(code, 4);
+
+        let block_headers = eth::parse_block_headers(uncrypted_body[1..].to_vec());
+
+        dbg!(&block_headers[0]);
+
+        // update block hash
+        current_hash = block_headers.last().unwrap().parenthash.to_vec();
 
         // if current_height == 0 {
         //     println!("Data fully synced");
