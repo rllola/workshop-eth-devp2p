@@ -75,6 +75,9 @@ fn main() {
     println!("Received Ack");
     let (_remote_public_key, remote_nonce, ephemeral_shared_secret) = utils::handle_ack_message(&payload, &shared_mac_data, &private_key, &ephemeral_privkey);
 
+    dbg!(hex::encode(remote_nonce));
+    dbg!(hex::encode(ephemeral_shared_secret));
+
     loop {
 
 
