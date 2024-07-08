@@ -236,6 +236,26 @@ fn main() {
         // update block hash
         current_hash = block_headers.last().unwrap().parenthash.to_vec();
 
+        /******************
+         *
+         *  Send GetBlockBodies message
+         *
+         ******************/
+        println!("Sending GetBlockBodies message");
+        let hashes = block_headers
+            .iter()
+            .map(|b| b.hash.clone())
+            .collect::<Vec<Vec<u8>>>();
+
+        let mut transactions: Vec<Vec<Transaction>> = vec![];
+
+        while transactions.len() < hashes.len() {
+            let get_blocks_bodies =
+                eth::create_get_block_bodies_message(&hashes[transactions.len()..].to_vec());
+            utils::send_message(get_blocks_bodies, &mut stream, &egress_mac, &egress_aes);
+
+        }
+
         // if current_height == 0 {
         //     println!("Data fully synced");
         //     break;
