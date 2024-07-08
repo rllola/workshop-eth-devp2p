@@ -254,12 +254,45 @@ fn main() {
                 eth::create_get_block_bodies_message(&hashes[transactions.len()..].to_vec());
             utils::send_message(get_blocks_bodies, &mut stream, &egress_mac, &egress_aes);
 
+            /******************
+             *
+             *  Handle BlockHeader message
+             *
+             ******************/
+
+            println!(
+                "Handling BlockBodies message ({}/{BLOCK_NUM} blocks received)",
+                transactions.len()
+            );
+            let mut uncrypted_body: Vec<u8>;
+            let mut code;
+            loop {
+                uncrypted_body = rx.recv().unwrap();
+
+                code = uncrypted_body[0] - 16;
+                if code == 6 {
+                    break;
+                }
+            }
+            assert_eq!(code, 6);
+
+            let tmp_txs = eth::parse_block_bodies(uncrypted_body[1..].to_vec());
+            transactions.extend(tmp_txs);
         }
 
-        // if current_height == 0 {
-        //     println!("Data fully synced");
-        //     break;
-        // }
+        let mut blocks: Vec<(Block, Vec<Transaction>)> = vec![];
+        let t_iter = transactions.iter();
+        t_iter.enumerate().for_each(|(i, txs)| {
+            blocks.push((block_headers[i].clone(), txs.to_vec()));
+        });
+
+        let current_height = blocks.last().unwrap().0.number;
+        println!("Blocks n° {}", current_height);
+
+        if current_height == 0 {
+            println!("Data fully synced");
+            break;
+        }
 
         break;
     }
