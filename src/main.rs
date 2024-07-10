@@ -24,14 +24,14 @@ const BLOCK_NUM: usize = 1024;
 fn main() {
     println!("Lets go");
 
-    // Feel the IP here
-    let ip = "184.174.36.104";
-    let port = 50303;
-    // Feel the remote_id here
-    let remote_id = hex::decode("a73c411ac2aa8092b961d934109302548f276916001bb24d36715d8894215b3b2a93d4e00790a6d565334bb4860a3c211d64881e3fde4ed96be77dc86b9f6784").unwrap();
+    // Fill the IP here
+    let ip = "2a01:e0a:46a:2780:ca1f:66ff:fec3:5924";
+    let port = 30304;
+    // Fill the remote_id here
+    let remote_id = hex::decode("883a7c135a8c9da475423110f48258a4ab8b9c9f88d8a6091bce3502aa88a94d3610e363520af944a07e34357b9d9dc4538803d1af584d98bceab5fdbf32ba08").unwrap();
 
-    let network = networks::Network::find("ethereum_sepolia").unwrap();
 
+    let network = networks::Network::find("ethereum_rinkeby").unwrap();
     /******************
      *
      *  Connect to peer
