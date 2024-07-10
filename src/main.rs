@@ -24,10 +24,10 @@ const BLOCK_NUM: usize = 1024;
 fn main() {
     println!("Lets go");
 
-    // Feel the IP here
+    // Fill the IP here
     let ip = "184.174.36.104";
     let port = 50303;
-    // Feel the remote_id here
+    // Fill the remote_id here
     let remote_id = hex::decode("a73c411ac2aa8092b961d934109302548f276916001bb24d36715d8894215b3b2a93d4e00790a6d565334bb4860a3c211d64881e3fde4ed96be77dc86b9f6784").unwrap();
 
     let network = networks::Network::find("ethereum_sepolia").unwrap();
