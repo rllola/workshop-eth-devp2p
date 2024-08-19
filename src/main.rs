@@ -12,6 +12,7 @@ use std::time::Duration;
 use crate::types::{Block, Transaction};
 
 pub mod eth;
+pub mod snap;
 pub mod mac;
 pub mod message;
 pub mod networks;
@@ -24,15 +25,13 @@ const BLOCK_NUM: usize = 1024;
 fn main() {
     println!("Lets go");
 
-    // Fill the IP here
-    let ip = "2a01:e0a:46a:2780:ca1f:66ff:fec3:5924";
-    let port = 30304;
+    // Feel the IP here
+    let ip = "110.141.27.159";
+    let port = 30303;
     // Fill the remote_id here
-    let remote_id = hex::decode("883a7c135a8c9da475423110f48258a4ab8b9c9f88d8a6091bce3502aa88a94d3610e363520af944a07e34357b9d9dc4538803d1af584d98bceab5fdbf32ba08").unwrap();
+    let remote_id = hex::decode("58dbe9760a05a5597a498fb915a0e147386adeac97f930a49ea460ac30fd2b9e897a5cf68349df187d2018594f6ce0edd1ef26683289a15ba3a624f98b15428d").unwrap();
 
-
-    let network = networks::Network::find("ethereum_rinkeby").unwrap();
-
+    let network = networks::Network::find("ethereum_mainnet").unwrap();
     /******************
      *
      *  Connect to peer
@@ -154,6 +153,83 @@ fn main() {
     let uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
     let mut current_hash = eth::parse_status_message(uncrypted_body[1..].to_vec());
 
+    /******************
+     *
+     *  Get Accounts !!
+     *
+     ******************/
+
+    println!("Get last block");
+    let get_blocks_headers =
+        eth::create_get_block_headers_message(&current_hash, 1, 0, true);
+    utils::send_message(
+        get_blocks_headers,
+        &mut stream,
+        &egress_mac,
+        &egress_aes,
+    );
+
+    let mut uncrypted_body: Vec<u8>;
+    let mut code;
+    loop {
+        uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
+
+        if uncrypted_body[0] > 16 {
+            code = uncrypted_body[0] - 16;
+            if code == 4 {
+                break;
+            }
+        } else {
+            dbg!(hex::encode(uncrypted_body));
+        }
+    }
+
+    assert_eq!(code, 4);
+
+    let block_headers = eth::parse_block_headers(uncrypted_body[1..].to_vec());
+    dbg!(&block_headers.last().unwrap().number);
+
+
+
+
+    /******************
+     *
+     *  CALL SNAP METHODS
+     *
+     ******************/
+
+    println!("Call GetAccountsRange");
+    dbg!(hex::encode(&block_headers[0].state_root));
+    let get_blocks_headers =
+    snap::create_get_account_range_message(&block_headers[0].state_root, &hex::decode("0000000000000000000000000000000000000000000000000000000000000000").unwrap(), &hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap());
+    utils::send_message(
+        get_blocks_headers,
+        &mut stream,
+        &egress_mac,
+        &egress_aes,
+    );
+
+    let mut uncrypted_body: Vec<u8>;
+    let mut code;
+    loop {
+        uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
+
+        if uncrypted_body[0] > 32 {
+            code = uncrypted_body[0] - 32;
+            if code == 0 {
+                break;
+            }
+        } else {
+            dbg!(uncrypted_body[0]);
+        }
+    }
+
+    assert_eq!(code, 0);
+
+    let block_headers = eth::parse_block_headers(uncrypted_body[1..].to_vec());
+    dbg!(&block_headers.last().unwrap().number);
+
+
 
     /****************************
      *
@@ -235,7 +311,7 @@ fn main() {
         // dbg!(&block_headers[0]);
 
         // update block hash
-        current_hash = block_headers.last().unwrap().parenthash.to_vec();
+        current_hash = block_headers.last().unwrap().parent_hash.to_vec();
 
         /******************
          *
@@ -280,6 +356,40 @@ fn main() {
             let tmp_txs = eth::parse_block_bodies(uncrypted_body[1..].to_vec());
             transactions.extend(tmp_txs);
         }
+
+        /******************
+         *
+         *  Send GetReceipts message
+         *
+         ******************/
+
+        println!("Sending GetReceipts !!");
+
+        let get_block_receipts =
+            eth::create_get_receipts_message(&hashes);
+        utils::send_message(get_block_receipts, &mut stream, &egress_mac, &egress_aes);
+
+        /******************
+         *
+         *  Handle Receipts message
+         *
+         ******************/
+
+        println!("Handling Receipts message");
+        let mut uncrypted_body: Vec<u8>;
+        let mut code;
+        loop {
+            uncrypted_body = rx.recv().unwrap();
+
+            code = uncrypted_body[0] - 16;
+            if code == 16 {
+                break;
+            }
+        }
+
+        assert_eq!(code, 16);
+
+        eth::parse_receipts(uncrypted_body[1..].to_vec());
 
         let mut blocks: Vec<(Block, Vec<Transaction>)> = vec![];
         let t_iter = transactions.iter();
