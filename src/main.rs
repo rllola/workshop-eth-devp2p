@@ -26,10 +26,10 @@ fn main() {
     println!("Lets go");
 
     // Feel the IP here
-    let ip = "110.141.27.159";
+    let ip = "34.29.62.235";
     let port = 30303;
     // Fill the remote_id here
-    let remote_id = hex::decode("58dbe9760a05a5597a498fb915a0e147386adeac97f930a49ea460ac30fd2b9e897a5cf68349df187d2018594f6ce0edd1ef26683289a15ba3a624f98b15428d").unwrap();
+    let remote_id = hex::decode("ea804d6ac4d425dfba4c2125080107fdb66d5f28ff0a8c77b8b6b11cdb13dc4df572b247301412f5de4e25b17c57a5c480bc1b2c122b3d6ec9bc8fa87dc3e948").unwrap();
 
     let network = networks::Network::find("ethereum_mainnet").unwrap();
     /******************
@@ -119,6 +119,7 @@ fn main() {
 
     println!("Sending HELLO message");
     let hello = message::create_hello_message(&private_key);
+    dbg!(hex::encode(&hello));
     utils::send_message(hello, &mut stream, &egress_mac, &egress_aes);
 
     /******************
@@ -161,7 +162,7 @@ fn main() {
 
     println!("Get last block");
     let get_blocks_headers =
-        eth::create_get_block_headers_message(&current_hash, 1, 0, true);
+        eth::create_get_block_headers_message(&current_hash, 2, 63, true);
     utils::send_message(
         get_blocks_headers,
         &mut stream,
@@ -198,38 +199,37 @@ fn main() {
      *
      ******************/
 
-    println!("Call GetAccountsRange");
-    dbg!(hex::encode(&block_headers[0].state_root));
-    let get_blocks_headers =
-    snap::create_get_account_range_message(&block_headers[0].state_root, &hex::decode("0000000000000000000000000000000000000000000000000000000000000000").unwrap(), &hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap());
-    utils::send_message(
-        get_blocks_headers,
-        &mut stream,
-        &egress_mac,
-        &egress_aes,
-    );
+    // println!("Call GetAccountsRange");
+    // dbg!(hex::encode(&block_headers.last().unwrap().state_root));
+    // let get_account_range =
+    // snap::create_get_account_range_message(&block_headers.last().unwrap().state_root, &hex::decode("0000000000000000000000000000000000000000000000000000000000000000").unwrap(), &hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap());
+    // utils::send_message(
+    //     get_account_range,
+    //     &mut stream,
+    //     &egress_mac,
+    //     &egress_aes,
+    // );
 
-    let mut uncrypted_body: Vec<u8>;
-    let mut code;
-    loop {
-        uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
+    // let mut uncrypted_body: Vec<u8>;
+    // let mut code;
+    // loop {
+    //     println!("reading message");
+    //     uncrypted_body = utils::read_message(&mut stream, &mut ingress_mac, &mut ingress_aes);
 
-        if uncrypted_body[0] > 32 {
-            code = uncrypted_body[0] - 32;
-            if code == 0 {
-                break;
-            }
-        } else {
-            dbg!(uncrypted_body[0]);
-        }
-    }
+    //     if uncrypted_body[0] > 32 {
+    //         code = uncrypted_body[0] - 33;
+    //         if code == 1 {
+    //             println!("Received message");
+    //             break;
+    //         }
+    //     } else {
+    //         dbg!(uncrypted_body[0]);
+    //     }
+    // }
 
-    assert_eq!(code, 0);
+    // assert_eq!(code, 1);
 
-    let block_headers = eth::parse_block_headers(uncrypted_body[1..].to_vec());
-    dbg!(&block_headers.last().unwrap().number);
-
-
+    // snap::parse_account_range(uncrypted_body[1..].to_vec());
 
     /****************************
      *

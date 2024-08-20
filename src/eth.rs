@@ -171,7 +171,25 @@ pub fn parse_receipts(payload: Vec<u8>) {
     let r = rlp::Rlp::new(&message);
     assert!(r.is_list());
 
-    dbg!(hex::encode(&message));
+    let _reqid: u64 = r.at(0).unwrap().as_val().unwrap();
+    let blocks = r.at(1).unwrap();
+
+    assert!(blocks.is_list());
+    
+    let num = blocks.item_count().unwrap();
+    for i in 0..num {
+        let recipients =  blocks.at(i).unwrap();
+
+        assert!(recipients.is_list());
+
+        let count = recipients.item_count().unwrap();
+        for j in 0..count {
+            let recipient = recipients.at(j).unwrap().as_raw();
+
+            dbg!(hex::encode(&recipient));
+        }
+
+    }
 }
 
 pub fn parse_block_bodies(payload: Vec<u8>) -> Vec<Vec<Transaction>> {

@@ -432,3 +432,12 @@ pub fn read_message(
 
     return uncrypted_body;
 }
+
+pub fn get_sig(r: &[u8], s: &[u8]) -> Vec<u8> {
+    let mut sig: Vec<u8> = vec![0; 64];
+    // We need to pas with 00
+    sig[(32 - r.len())..32].copy_from_slice(&r);
+    sig[(64 - s.len())..].copy_from_slice(&s);
+
+    sig
+}
