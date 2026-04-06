@@ -25,12 +25,12 @@ fn main() {
     println!("Lets go");
 
     // Feel the IP here
-    let ip = "184.174.36.104";
-    let port = 50303;
+    let ip = "65.109.90.251";
+    let port = 30303;
     // Feel the remote_id here
-    let remote_id = hex::decode("a73c411ac2aa8092b961d934109302548f276916001bb24d36715d8894215b3b2a93d4e00790a6d565334bb4860a3c211d64881e3fde4ed96be77dc86b9f6784").unwrap();
+    let remote_id = hex::decode("dd9fca568f82e037ffec72c4c1ef59295f2a3dd873cbe1fa166ae7af1d2f93e5bacf63db5c137bfabacece7587461315bc4cebbd23f2a0de4fc7aa1108fdc97e").unwrap();
 
-    let network = networks::Network::find("ethereum_sepolia").unwrap();
+    let network = networks::Network::find("ethereum_hoodi").unwrap();
 
     /******************
      *
