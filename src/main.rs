@@ -25,13 +25,13 @@ fn main() {
     println!("Lets go");
 
     // Fill the IP here
-    let ip = "2a01:e0a:46a:2780:ca1f:66ff:fec3:5924";
-    let port = 30304;
+    let ip = "65.109.90.251";
+    let port = 30303;
     // Fill the remote_id here
-    let remote_id = hex::decode("883a7c135a8c9da475423110f48258a4ab8b9c9f88d8a6091bce3502aa88a94d3610e363520af944a07e34357b9d9dc4538803d1af584d98bceab5fdbf32ba08").unwrap();
+    let remote_id = hex::decode("dd9fca568f82e037ffec72c4c1ef59295f2a3dd873cbe1fa166ae7af1d2f93e5bacf63db5c137bfabacece7587461315bc4cebbd23f2a0de4fc7aa1108fdc97e").unwrap();
 
 
-    let network = networks::Network::find("ethereum_rinkeby").unwrap();
+    let network = networks::Network::find("ethereum_hoodi").unwrap();
 
     /******************
      *
